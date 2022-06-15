@@ -1,25 +1,125 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Course project 1"
+author: "ALE Junior"
+date: '2022-06-15'
+output: html_document
 ---
 
-
 ## Loading and preprocessing the data
+ Load the data
 
+```{r, echo=TRUE}
+activityData <- read.csv(file="activity.csv", header=TRUE)
+```
 
+ No need to tranform the data
 
 ## What is mean total number of steps taken per day?
+ Calculate the total steps taken per day
+ 
+```{r, echo=TRUE}
+totalSteps <- aggregate(steps ~ date, activityData, FUN=sum)
+```
 
+ Make a histogram of the total number of steps taken per day
+ 
+```{r, echo=TRUE}
+hist(totalSteps$steps,
+     main = "Total Steps per Day",
+     xlab = "Number of Steps")
+```
 
+ Calculate and report the mean and median of total steps taken per day
+ 
+```{r, echo=TRUE}
+meanSteps <- mean(totalSteps$steps, na.rm = TRUE)
+medSteps <- median(totalSteps$steps, na.rm = TRUE)
+```
 
 ## What is the average daily activity pattern?
 
+ Make a time-series plot of the 5-minute interval and the average number of steps taken, averaged acoss all days
+ 
+```{r, echo=TRUE}
+library(ggplot2)
+meanStepsByInt <- aggregate(steps ~ interval, activityData, mean)
+ggplot(data = meanStepsByInt, aes(x = interval, y = steps)) +
+  geom_line() +
+  ggtitle("Average Daily Activity Pattern") +
+  xlab("5-minute Interval") +
+  ylab("Average Number of Steps") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
 
+ Which 5-minute interval across all days contain the maximum number of steps
+```{r, echo=TRUE}
+maxInt <- meanStepsByInt[which.max(meanStepsByInt$steps),]
+```
 
-## Imputing missing values
+## Imputing Missing Values
 
+ Calculate and report the total number of missing values in the dataset
+ 
+```{r, echo=TRUE}
+missingVals <- is.na(activityData$steps)
+table(missingVals)
+```
 
+ Devise a strategy for filling in all of the missing values
+
+There are 2304 missing values. I will replace these missing values with the 5-day average of that respective interval.
+
+ Create a new dataset that is equal to the original dataset but with the missing data filled in.
+ 
+```{r, echo=TRUE}
+new_activityData <- transform(activityData,
+steps = ifelse(is.na(activityData$steps), meanStepsByInt$steps[match(activityData$interval, meanStepsByInt$interval)], activityData$steps))
+```
+
+ Make a histogram of the total number of steps taken each day and report the mean and median.
+ 
+```{r, echo=TRUE}
+impStepsByInt <- aggregate(steps ~ date, new_activityData, FUN=sum)
+hist(impStepsByInt$steps,
+     main = "Imputed Number of Steps Per Day",
+     xlab = "Number of Steps")
+
+impMeanSteps <- mean(impStepsByInt$steps, na.rm = TRUE)
+impMedSteps <- median(impStepsByInt$steps, na.rm = TRUE)
+diffMean = impMeanSteps - meanSteps
+diffMed = impMedSteps - medSteps
+diffTotal = sum(impStepsByInt$steps) - sum(totalSteps$steps)
+```
+
+There is a difference of 0 in the mean steps of the two dataset. There is a difference of -1.076381110^{4} in the median steps of the two dataset. There is a difference of 8.612950910^{4} in the total steps of the two dataset.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+ Create a new factor variable in the dataset with two levels - "weekend" and "weekday"
+ 
+```{r, echo=TRUE}
+DayType <- function(date) {
+  day <- weekdays(date)
+  if (day %in% c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'))
+      return ("weekday")
+  else if (day %in% c('Saturday', 'Sunday'))
+      return ("weekend")
+  else
+      stop ("Invalid Date Format.")
+}
+new_activityData$date <- as.Date(new_activityData$date)
+new_activityData$day <- sapply(new_activityData$date, FUN = DayType)
+```
+
+ Make a panel plot containnig a time-series plot of the 5-minute interval and the average number of steps taken across all weekdays or weekends
+
+```{r, echo=TRUE}
+meanStepsByDay <- aggregate(steps ~ interval + day, new_activityData, mean)
+ggplot(data = meanStepsByDay, aes(x = interval, y = steps)) + 
+  geom_line() +
+  facet_grid(day ~ .) +
+  ggtitle("Average Daily Activity Pattern") +
+  xlab("5-minute Interval") +
+  ylab("Average Number of Steps") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
